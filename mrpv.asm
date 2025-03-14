@@ -244,22 +244,43 @@ LimpiarBufferEntrada:
     ret
 
 ;--------------------------------------------------
-; LeerLineaEntrada: Lee caracteres del teclado hasta que se presione ENTER y almacena la cadena en BufferEntrada.
+; LeerLineaEntrada: Lee caracteres del teclado hasta que se presione ENTER.
+; Almacena la cadena ingresada en BufferEntrada, permitiendo borrar caracteres con Backspace.
 ;--------------------------------------------------
 LeerLineaEntrada:
     lea di, [BufferEntrada]         ; DI apunta al buffer donde se almacenará la entrada
 .BucleLeer:
-    mov ah, 0                       ; Funcion BIOS para esperar una tecla
+    mov ah, 0                       ; Función BIOS para esperar una tecla
     int 16h                         ; Llama al BIOS para leer el teclado
-    cmp al, 13                      ; Comprueba si se presiono ENTER (código 13)
+    cmp al, 13                      ; ¿Tecla ENTER? (código 13)
     je FinLeer                      ; Si es ENTER, finaliza la lectura
-    mov ah, 0x0E                    ; Funcion BIOS para imprimir el caracter (eco)
+    cmp al, 8                       ; ¿Tecla Backspace? (código 8)
+    je .Backspace                   ; Si es Backspace, maneja el borrado
+    ; Imprime el caracter y lo almacena
+    mov ah, 0x0E                    ; Función BIOS para imprimir el caracter (modo teletipo)
     int 0x10                        ; Imprime el caracter en pantalla
     stosb                           ; Almacena el caracter en BufferEntrada y avanza DI
-    jmp .BucleLeer                  ; Repite el proceso hasta ENTER
+    jmp .BucleLeer
+
+.Backspace:
+    ; Solo borrar si ya hay caracteres almacenados
+    cmp di, BufferEntrada           ; Compara si DI está al inicio del buffer
+    je .BucleLeer                   ; Si está al inicio, ignora el Backspace
+    dec di                          ; Retrocede DI para "borrar" el último caracter
+    ; Borra el caracter en pantalla: retrocede, escribe espacio, retrocede de nuevo.
+    mov ah, 0x0E
+    mov al, 8                       ; Retroceso
+    int 0x10
+    mov al, ' '                     ; Espacio para borrar el caracter
+    int 0x10
+    mov al, 8                       ; Retroceso de nuevo para dejar el cursor en la posición correcta
+    int 0x10
+    jmp .BucleLeer
+
 FinLeer:
-    mov byte [di], 0                ; Termina la cadena con caracter nulo (0)
+    mov byte [di], 0                ; Termina la cadena con carácter nulo (0)
     ret
+
 
 ;--------------------------------------------------
 ; CompararCadenas: Compara dos cadenas, retorna 0 si son iguales o 1 si no.
